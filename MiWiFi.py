@@ -12,7 +12,7 @@
 # REQUIREMENTS:  ---
 #         BUGS:  ---
 #        NOTES:  ---
-#       AUTHOR:  YOUR NAME (), 
+#       AUTHOR:  Qimiao.Chen (chenqimiao1994@126.com), 
 #      COMPANY:  
 #      VERSION:  1.0
 #      CREATED:  
@@ -32,8 +32,7 @@ class MiWiFiClient(object):
     docstring for MiWiFi
     """
     # 小米路由器首页
-    URL_ROOT = "http://miwifi.com"
-
+    url_root: str
     device_mac: str
     device_type: str = '0'
     password: str
@@ -43,8 +42,9 @@ class MiWiFiClient(object):
     # 小米路由器当前设备清单页面，登录后取得 stok 值才能完成拼接
     url_action: str = None
 
-    def __init__(self, password: str) -> None:
+    def __init__(self, password: str, router_ip: str = "192.168.31.1") -> None:
         self.password = password
+        self.url_root = "http://{}".format(router_ip)
         self.get_key()
  
     def gen_nonce(self) -> str:
@@ -64,7 +64,7 @@ class MiWiFiClient(object):
         return sha1(str(nonce+sha1(str(self.password + self.key).encode()).hexdigest()).encode()).hexdigest()
 
     def get_key(self):
-        url = '%s/cgi-bin/luci/web/home' % self.URL_ROOT
+        url = '%s/cgi-bin/luci/web/home' % self.url_root
         try:
             ret = get(url)
             if ret.status_code != 200:
@@ -97,7 +97,7 @@ class MiWiFiClient(object):
         docstring for login()
         登录小米路由器，并取得对应的 cookie 和用于拼接 URL 所需的 stok
         """
-        url = "%s/cgi-bin/luci/api/xqsystem/login" % self.URL_ROOT
+        url = "%s/cgi-bin/luci/api/xqsystem/login" % self.url_root
         nonce = self.gen_nonce()
         password = self.encode_pass(nonce)
         payload = {'username': 'admin', 'logtype': '2', 'password': password, 'nonce': nonce}
@@ -112,7 +112,7 @@ class MiWiFiClient(object):
 
         self.stok = stok
         self.cookies = r.cookies
-        self.url_action =  "%s/cgi-bin/luci/;stok=%s/api" % (self.URL_ROOT, self.stok)
+        self.url_action =  "%s/cgi-bin/luci/;stok=%s/api" % (self.url_root, self.stok)
 
     def list_device(self) -> dict:
         """
@@ -144,7 +144,17 @@ class MiWiFiClient(object):
         except Exception as e:
             raise e
 
-
-
-
-
+    def reboot(self) -> int:
+        """
+        docstring for reboot()
+        重启当前节点路由器
+        """
+        if self.url_action is None or self.cookies is None:
+            self.login()
+        url = "%s/xqsystem/reboot" % self.url_action
+        try:
+            r = get(url, cookies = self.cookies)
+            # print json.dumps(json.loads(r.text), indent=4)
+            return json.loads(r.text).get('code')
+        except Exception as e:
+            raise e

@@ -21,7 +21,7 @@
 
 from random import random
 from time import time
-from hashlib import sha1
+from hashlib import sha1, sha256
 from requests import get, post
 from math import floor
 import json
@@ -61,7 +61,19 @@ class MiWiFiClient(object):
         docstring for encode_pass()
         模仿小米路由器的登录页面，计算密码的 hash
         """
-        return sha1(str(nonce+sha1(str(self.password + self.key).encode()).hexdigest()).encode()).hexdigest()
+        # check encrypt mode
+        url = '%s/cgi-bin/luci/api/xqsystem/init_info' % self.url_root
+        
+        try:
+            encryptmode = json.loads(get(url).text).get('newEncryptMode')
+
+            if int(encryptmode) == 0:
+                return sha1(str(nonce+sha1(str(self.password + self.key).encode()).hexdigest()).encode()).hexdigest()
+            else:
+                # sha256 is needed for the newest stock firmware for ax3000t from china when encryptmode bit set to 1
+                return sha256(str(nonce+sha256(str(self.password + self.key).encode()).hexdigest()).encode()).hexdigest()
+        except Exception as e:
+            raise e
 
     def get_key(self):
         url = '%s/cgi-bin/luci/web/home' % self.url_root
@@ -156,5 +168,26 @@ class MiWiFiClient(object):
             r = get(url, cookies = self.cookies)
             # print json.dumps(json.loads(r.text), indent=4)
             return json.loads(r.text).get('code')
+        except Exception as e:
+            raise e
+
+    def run_raw_action(self, action: str, method='get', **kwargs) -> dict:
+        """
+        docstring for run_custom_action()
+        run custom endpoint api action. eg. api/misystem, api/xqsystem.
+        """
+        if self.url_action is None or self.cookies is None:
+            self.login()
+
+        url = '%s/%s' % (self.url_action, action)
+        method = method.lower()
+        try:
+            if method == "post":
+                r = post(url, cookies = self.cookies, **kwargs)
+            else:
+                if method != 'get':
+                    print('WARNING: unsupport method, default to use GET.')
+                r = get(url, cookies = self.cookies, **kwargs)
+            return json.loads(r.text)
         except Exception as e:
             raise e

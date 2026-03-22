@@ -67,7 +67,8 @@ class MiWiFiClient(object):
         try:
             encryptmode = json.loads(get(url).text).get('newEncryptMode')
 
-            if int(encryptmode) == 0:
+            if int(encryptmode) == 0 or None:
+                # for legacy firmware
                 return sha1(str(nonce+sha1(str(self.password + self.key).encode()).hexdigest()).encode()).hexdigest()
             else:
                 # sha256 is needed for the newest stock firmware for ax3000t from china when encryptmode bit set to 1

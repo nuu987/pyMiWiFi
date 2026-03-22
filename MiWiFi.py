@@ -67,7 +67,7 @@ class MiWiFiClient(object):
         try:
             encryptmode = json.loads(get(url).text).get('newEncryptMode')
 
-            if int(encryptmode) == 0 or None:
+            if encryptmode is None or encryptmode == "0":
                 # for legacy firmware
                 return sha1(str(nonce+sha1(str(self.password + self.key).encode()).hexdigest()).encode()).hexdigest()
             else:
